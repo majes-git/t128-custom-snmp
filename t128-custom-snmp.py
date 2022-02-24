@@ -225,6 +225,11 @@ def update_arp(api, pp):
             state = 4
         pp.add_int(oid, state)
 
+    # Add mac addresses as string
+    for entry in arp_table:
+        oid = '{}.5.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        pp.add_str(oid, entry['destinationMac'])
+
 
 def main():
     args = parse_arguments()
