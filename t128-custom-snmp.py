@@ -123,6 +123,33 @@ def error(*msg):
     sys.exit(1)
 
 
+def get_network_interfaces(api):
+    json = {
+        'query': '{ allNetworkInterfaces { nodes { globalId name description addresses { nodes { ipAddress prefixLength gateway } } deviceInterface { name } } } }'
+    }
+    request = api.post('/graphql', json)
+    interfaces = []
+    if request.status_code == 200:
+        for i in request.json()['data']['allNetworkInterfaces']['nodes']:
+            # if giid not in interfaces:
+            #     interfaces[giid] = {}
+            address = i['addresses']['nodes'][0]
+            interface = {
+                'giid': i['globalId'],
+                'name': i['name'],
+                'device_name': i['deviceInterface']['name'],
+                'description': i['description'],
+                'ip_address': address['ipAddress'],
+                'prefix': address['prefixLength'],
+                'gateway': address['gateway'],
+            }
+            interfaces.append(interface)
+        return interfaces
+    else:
+        error('Retrieving network interfaces has failed: {} ({})'.format(
+              request.text, request.status_code))
+
+
 def get_fib_table(api):
     json = {
         'query': '{ allRouters { nodes { name nodes { nodes { name fibEntries { nodes { serviceName route { ipPrefix tenant protocol l4Port l4PortUpper vrf } } } } } } } }'
@@ -166,6 +193,35 @@ def update_sysinfo(api, pp, dmi):
     pp.add_str('2.1', 'Juniper Networks, Inc.')    # sw_vendor
     pp.add_str('2.2', 'Session Smart Router')      # sw_product
     pp.add_str('2.3', run('rpm -q --qf %{VERSION} 128T'.split(' '), stdout=PIPE, encoding='utf8').stdout)
+
+
+def update_network_interfaces(api, pp):
+    NI_OID = '10'
+    for interface in get_network_interfaces(api):
+        giid = interface['giid']
+        # name
+        oid = '{}.1.{}'.format(NI_OID, giid)
+        pp.add_str(oid, interface['name'])
+        # device_name
+        oid = '{}.2.{}'.format(NI_OID, giid)
+        pp.add_str(oid, interface['device_name'])
+        # description
+        oid = '{}.3.{}'.format(NI_OID, giid)
+        pp.add_str(oid, interface['description'])
+        # ip address + prefix
+        oid = '{}.11.{}'.format(NI_OID, giid)
+        pp.add_str(oid, '{i[ip_address]}/{i[prefix]}'.format(i=interface))
+        # ip address
+        oid = '{}.12.{}'.format(NI_OID, giid)
+        pp.add_ip(oid, interface['ip_address'])
+        # prefix
+        oid = '{}.13.{}'.format(NI_OID, giid)
+        pp.add_int(oid, interface['prefix'])
+        # gateway
+        gateway = interface['gateway']
+        if gateway:
+            oid = '{}.14.{}'.format(NI_OID, giid)
+            pp.add_ip(oid, gateway)
 
 
 def update_fib(api, pp):
@@ -241,6 +297,7 @@ def main():
 
     def update():
         update_sysinfo(api, pp, dmi)
+        update_network_interfaces(api, pp)
         update_fib(api, pp)
         update_arp(api, pp)
 
