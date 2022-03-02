@@ -32,3 +32,4 @@
   service.running:
     - watch:
       - file: {{ override_file }}
+      - file: /usr/sbin/t128-custom-snmp.pyz
