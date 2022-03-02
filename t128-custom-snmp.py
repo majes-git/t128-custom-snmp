@@ -219,15 +219,17 @@ def update_network_interfaces(api, pp):
         oid = '{}.11.{}'.format(NI_OID, giid)
         pp.add_str(oid, '{i[ip_address]}/{i[prefix]}'.format(i=interface))
         # ip address
-        oid = '{}.12.{}'.format(NI_OID, giid)
+        oid = '{}.21.{}'.format(NI_OID, giid)
         pp.add_ip(oid, interface['ip_address'])
         # prefix
-        oid = '{}.13.{}'.format(NI_OID, giid)
+        oid = '{}.22.{}'.format(NI_OID, giid)
         pp.add_int(oid, interface['prefix'])
         # gateway
         gateway = interface['gateway']
         if gateway:
-            oid = '{}.14.{}'.format(NI_OID, giid)
+            oid = '{}.13.{}'.format(NI_OID, giid)
+            pp.add_str(oid, gateway)
+            oid = '{}.23.{}'.format(NI_OID, giid)
             pp.add_ip(oid, gateway)
 
 
