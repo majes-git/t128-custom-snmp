@@ -137,11 +137,15 @@ def get_network_interfaces(api):
             # for DHCP IP config address is in "state"
             elif i['state']['addresses']:
                 address = i['state']['addresses'][0]
+            # avoid 'None' as description
+            description = ''
+            if i['description']:
+                description = i['description']
             interface = {
                 'giid': i['globalId'],
                 'name': i['name'],
                 'device_name': i['deviceInterface']['name'],
-                'description': i['description'],
+                'description': description,
                 'ip_address': address['ipAddress'],
                 'prefix': address['prefixLength'],
                 'gateway': address['gateway'],
