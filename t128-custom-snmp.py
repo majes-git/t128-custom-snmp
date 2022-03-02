@@ -125,15 +125,18 @@ def error(*msg):
 
 def get_network_interfaces(api):
     json = {
-        'query': '{ allNetworkInterfaces { nodes { globalId name description addresses { nodes { ipAddress prefixLength gateway } } deviceInterface { name } } } }'
+        'query': '{ allNetworkInterfaces { nodes { globalId name description addresses { nodes { ipAddress prefixLength gateway } } state { addresses { ipAddress prefixLength gateway } } deviceInterface { name } } } }'
     }
     request = api.post('/graphql', json)
     interfaces = []
     if request.status_code == 200:
         for i in request.json()['data']['allNetworkInterfaces']['nodes']:
-            # if giid not in interfaces:
-            #     interfaces[giid] = {}
-            address = i['addresses']['nodes'][0]
+            # for static IP config address is in "addresses"
+            if i['addresses']['nodes']:
+                address = i['addresses']['nodes'][0]
+            # for DHCP IP config address is in "state"
+            elif i['state']['addresses']:
+                address = i['state']['addresses'][0]
             interface = {
                 'giid': i['globalId'],
                 'name': i['name'],
