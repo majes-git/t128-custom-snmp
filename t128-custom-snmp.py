@@ -157,6 +157,23 @@ def get_network_interfaces(api):
               request.text, request.status_code))
 
 
+def get_peer_paths(api):
+    json = {
+        'query': '{ allPeers { nodes { name paths { status node networkInterface networkInterfaceDescription adjacentAddress mtu latency jitter loss mos uptime deviceInterface vlan isActive } } } }'
+    }
+    request = api.post('/graphql', json)
+    peer_paths = []
+    if request.status_code == 200:
+        for peer in request.json()['data']['allPeers']['nodes']:
+            for path in peer['paths']:
+                path['name'] = peer['name']
+                peer_paths.append(path)
+        return peer_paths
+    else:
+        error('Retrieving peer path details has failed: {} ({})'.format(
+              request.text, request.status_code))
+
+
 def get_fib_table(api):
     json = {
         'query': '{ allRouters { nodes { name nodes { nodes { name fibEntries { nodes { serviceName route { ipPrefix tenant protocol l4Port l4PortUpper vrf } } } } } } } }'
@@ -233,6 +250,53 @@ def update_network_interfaces(api, pp):
             pp.add_ip(oid, gateway)
 
 
+def update_peer_paths(api, pp):
+    PP_OID = '11'
+    p = 1
+    for peer_path in get_peer_paths(api):
+        oid = '{}.1.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['name'])
+        oid = '{}.2.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['status'])
+        oid = '{}.3.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['node'])
+        oid = '{}.4.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['networkInterface'])
+        oid = '{}.5.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['networkInterfaceDescription'])
+        oid = '{}.6.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['adjacentAddress'])
+        oid = '{}.7.{}'.format(PP_OID, p)
+        pp.add_ip(oid, peer_path['adjacentAddress'])
+        oid = '{}.8.{}'.format(PP_OID, p)
+        pp.add_int(oid, peer_path['mtu'])
+        oid = '{}.9.{}'.format(PP_OID, p)
+        pp.add_int(oid, peer_path['latency'])
+        oid = '{}.10.{}'.format(PP_OID, p)
+        pp.add_int(oid, peer_path['jitter'])
+        oid = '{}.11.{}'.format(PP_OID, p)
+        pp.add_int(oid, peer_path['loss'])
+        oid = '{}.12.{}'.format(PP_OID, p)
+        pp.add_int(oid, peer_path['mos'])
+        oid = '{}.13.{}'.format(PP_OID, p)
+        pp.add_int(oid, peer_path['uptime'])
+        uptime = peer_path['uptime'] // 1000
+        days = uptime // 86400
+        hours = uptime % 86400 // 3600
+        minutes = uptime % 3600 // 60
+        seconds = uptime % 60
+        uptime_string = '{}d {:02d}:{:02d}:{:02d}'.format(days, hours, minutes, seconds)
+        oid = '{}.14.{}'.format(PP_OID, p)
+        pp.add_str(oid, uptime_string)
+        oid = '{}.15.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['deviceInterface'])
+        oid = '{}.16.{}'.format(PP_OID, p)
+        pp.add_int(oid, peer_path['vlan'])
+        oid = '{}.17.{}'.format(PP_OID, p)
+        pp.add_str(oid, peer_path['isActive'])
+        p += 1
+
+
 def update_fib(api, pp):
     FIB_OID = '20'
     fib_table = get_fib_table(api)
@@ -307,6 +371,7 @@ def main():
     def update():
         update_sysinfo(api, pp, dmi)
         update_network_interfaces(api, pp)
+        update_peer_paths(api, pp)
         update_fib(api, pp)
         update_arp(api, pp)
 
