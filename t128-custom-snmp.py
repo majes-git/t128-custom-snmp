@@ -194,7 +194,7 @@ def get_fib_table(api):
 
 def get_arp_table(api):
     json = {
-        'query': '{ allRouters { nodes { name nodes { nodes { name arp { nodes { devicePort ipAddress destinationMac state } } } } } } }'
+        'query': '{ allRouters { nodes { name nodes { nodes { name arp { nodes { devicePort ipAddress destinationMac state networkInterface } } } } } } }'
     }
     request = api.post('/graphql', json)
     if request.status_code == 200:
@@ -221,7 +221,8 @@ def update_sysinfo(api, pp, dmi):
 
 def update_network_interfaces(api, pp):
     NI_OID = '10'
-    for interface in get_network_interfaces(api):
+    interfaces = get_network_interfaces(api)
+    for interface in interfaces:
         giid = interface['giid']
         # name
         oid = '{}.1.{}'.format(NI_OID, giid)
@@ -248,6 +249,7 @@ def update_network_interfaces(api, pp):
             pp.add_str(oid, gateway)
             oid = '{}.23.{}'.format(NI_OID, giid)
             pp.add_ip(oid, gateway)
+    return interfaces
 
 
 def update_peer_paths(api, pp):
@@ -326,7 +328,7 @@ def update_fib(api, pp):
         s += 1
 
 
-def update_arp(api, pp):
+def update_arp(api, pp, interfaces):
     ARP_OID = '22'
     arp_table = get_arp_table(api)
     # Add deviceports first
@@ -359,6 +361,22 @@ def update_arp(api, pp):
         oid = '{}.5.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
         pp.add_str(oid, entry['destinationMac'])
 
+    # Add network interface name as string
+    for entry in arp_table:
+        oid = '{}.6.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        pp.add_str(oid, entry['networkInterface'])
+
+    # Add network interface name global id
+    for entry in arp_table:
+        oid = '{}.7.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        giid = 0
+        for interface in interfaces:
+            if interface['name'] == entry['networkInterface']:
+                giid = interface['giid']
+                break
+        if giid:
+            pp.add_int(oid, giid)
+
 
 def main():
     args = parse_arguments()
@@ -370,10 +388,10 @@ def main():
 
     def update():
         update_sysinfo(api, pp, dmi)
-        update_network_interfaces(api, pp)
+        interfaces = update_network_interfaces(api, pp)
         update_peer_paths(api, pp)
         update_fib(api, pp)
-        update_arp(api, pp)
+        update_arp(api, pp, interfaces)
 
     pp=snmp_passpersist.PassPersist(BASE)
     pp.start(update, REFRESH) # Every "REFRESH"s

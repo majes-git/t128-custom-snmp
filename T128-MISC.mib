@@ -1,0 +1,131 @@
+-- Copyright (c) Juniper Networks, Inc. 2022. All rights reserved.
+T128-MISC-MIB DEFINITIONS ::= BEGIN
+
+--
+-- Defines objects for additional statistics from the 128T Networking Platform
+--
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, IpAddress
+        FROM SNMPv2-SMI
+
+    DisplayString
+        FROM SNMPv2-TC
+
+    Integer32
+        FROM SNMPv2-SMI
+
+    t128PlatformSnmpMibs
+        FROM T128-MIB
+;
+
+
+t128MiscellaneousMIB MODULE-IDENTITY
+    LAST-UPDATED "202203310000Z"
+    ORGANIZATION "www.128technology.com"
+    CONTACT-INFO
+        "Juniper Networks, Inc.
+         Postal: 1133 Innovation Way
+                 Sunnyvale, California, 94089
+                 USA
+         Support: https://support.juniper.net/support/
+         web: www.juniper.net"
+    DESCRIPTION
+            "This MIB module defines objects that represent various statistics."
+
+    -- revision history
+    REVISION     "202203310000Z" -- Mar. 31, 2022
+    DESCRIPTION  "Initial revision"
+
+    ::= { t128PlatformSnmpMibs 128 }
+
+
+t128MiscellaneousMIBSysinfo             OBJECT IDENTIFIER ::= { t128MiscellaneousMIB 1 }
+t128MiscellaneousMIBNetworkInterfaces   OBJECT IDENTIFIER ::= { t128MiscellaneousMIB 10 }
+t128MiscellaneousMIBPeerPaths           OBJECT IDENTIFIER ::= { t128MiscellaneousMIB 11 }
+t128MiscellaneousMIBFib                 OBJECT IDENTIFIER ::= { t128MiscellaneousMIB 20 }
+t128MiscellaneousMIBRib                 OBJECT IDENTIFIER ::= { t128MiscellaneousMIB 21 }
+-- t128MiscellaneousMIBArp                 OBJECT IDENTIFIER ::= { t128MiscellaneousMIB 22 }
+
+t128ArpTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF T128ArpTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+            "Show ARP table entries of an 128T/SSR router. (leant on RFC1213)"
+    ::= { t128MiscellaneousMIB 22 }
+
+t128ArpTableEntry OBJECT-TYPE
+    SYNTAX      T128ArpTableEntry
+    MAX-ACCESS  not-accessible
+    STATUS  current
+    DESCRIPTION
+            "Each entry contains one IpAddress to `physical'
+            address equivalence."
+    INDEX   { t128GlobalInterfaceId, t128IpAddress }
+    ::= { t128ArpTable 1 }
+
+T128ArpTableEntry ::=
+    SEQUENCE {
+        t128GlobalInterfaceId
+            Integer32,
+        t128MacAddressHex
+            OCTET STRING,
+        t128IpAddress
+            IpAddress,
+        t128ArpEntryType
+            Integer32,
+        t128MacAddressString
+            DisplayString
+    }
+
+t128InterfaceIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Interface index"
+    ::= { t128ArpTableEntry 1 }
+
+t128MacAddressHex OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "MAC address as hex/octet string"
+    ::= { t128ArpTableEntry 2 }
+
+t128IpAddress OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Target IP address"
+    ::= { t128ArpTableEntry 3 }
+
+t128ArpEntryType OBJECT-TYPE
+    SYNTAX      Integer32 (1..4)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Type of the entry (dynamic, static, invalid)"
+    ::= { t128ArpTableEntry 4 }
+
+t128MacAddressString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..17))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "MAC address as human readable string"
+    ::= { t128ArpTableEntry 5 }
+
+t128NetworkInterfaceString OBJECT-TYPE
+    SYNTAX      DisplayString (SIZE (0..255))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Network interface name as human readable string"
+    ::= { t128ArpTableEntry 6 }
+
+t128GlobalInterfaceId OBJECT-TYPE
+    SYNTAX      Integer32 (1..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Global Interface ID"
+    ::= { t128ArpTableEntry 7 }
+
+END
