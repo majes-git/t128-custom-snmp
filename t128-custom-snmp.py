@@ -331,24 +331,31 @@ def update_fib(api, pp):
 def update_arp(api, pp, interfaces):
     ARP_OID = '22'
     arp_table = get_arp_table(api)
-    # Add deviceports first
+
+    giids = {
+        'controlKniIf': '254',
+    }
+    for interface in interfaces:
+        giids[interface['name']] = interface['giid']
+
+    # Add giid first
     for entry in arp_table:
-        oid = '{}.1.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
-        pp.add_int(oid, entry['devicePort'])
+        oid = '{}.1.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
+        pp.add_int(oid, giids[entry['networkInterface']])
 
     # Add mac addresses
     for entry in arp_table:
-        oid = '{}.2.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        oid = '{}.2.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_oct(oid, entry['destinationMac'].replace(':', ' '))
 
     # Add ip addresses
     for entry in arp_table:
-        oid = '{}.3.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        oid = '{}.3.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_ip(oid, entry['ipAddress'])
 
     # Add entry type
     for entry in arp_table:
-        oid = '{}.4.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        oid = '{}.4.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         state = 2   # default: "invalid"
         if entry['state'] == 'Valid':
             state = 3
@@ -358,24 +365,13 @@ def update_arp(api, pp, interfaces):
 
     # Add mac addresses as string
     for entry in arp_table:
-        oid = '{}.5.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        oid = '{}.5.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_str(oid, entry['destinationMac'])
 
     # Add network interface name as string
     for entry in arp_table:
-        oid = '{}.6.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
+        oid = '{}.6.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_str(oid, entry['networkInterface'])
-
-    # Add network interface name global id
-    for entry in arp_table:
-        oid = '{}.7.{}.{}'.format(ARP_OID, entry['devicePort'], entry['ipAddress'])
-        giid = 0
-        for interface in interfaces:
-            if interface['name'] == entry['networkInterface']:
-                giid = interface['giid']
-                break
-        if giid:
-            pp.add_int(oid, giid)
 
 
 def main():
