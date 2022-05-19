@@ -75,41 +75,41 @@ t128GlobalInterfaceId OBJECT-TYPE
     MAX-ACCESS  not-accessible
     STATUS      current
     DESCRIPTION "Interface index"
-    ::= { t128ArpTableEntry 1 }
+    ::= { t128ArpTable 1 }
 
 t128MacAddressHex OBJECT-TYPE
     SYNTAX      OCTET STRING
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "MAC address as hex/octet string"
-    ::= { t128ArpTableEntry 2 }
+    ::= { t128ArpTable 2 }
 
 t128IpAddress OBJECT-TYPE
     SYNTAX      IpAddress
     MAX-ACCESS  not-accessible
     STATUS      current
     DESCRIPTION "Target IP address"
-    ::= { t128ArpTableEntry 3 }
+    ::= { t128ArpTable 3 }
 
 t128ArpEntryType OBJECT-TYPE
     SYNTAX      Integer32 (1..4)
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Type of the entry (dynamic, static, invalid)"
-    ::= { t128ArpTableEntry 4 }
+    ::= { t128ArpTable 4 }
 
 t128MacAddressString OBJECT-TYPE
     SYNTAX      DisplayString (SIZE (0..17))
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "MAC address as human readable string"
-    ::= { t128ArpTableEntry 5 }
+    ::= { t128ArpTable 5 }
 
 t128NetworkInterfaceString OBJECT-TYPE
     SYNTAX      DisplayString (SIZE (0..255))
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Network interface name as human readable string"
-    ::= { t128ArpTableEntry 6 }
+    ::= { t128ArpTable 6 }
 
 END
