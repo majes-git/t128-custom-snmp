@@ -281,8 +281,11 @@ def update_peer_paths(api, pp):
         oid = '{}.12.{}'.format(PP_OID, p)
         pp.add_int(oid, peer_path['mos'])
         oid = '{}.13.{}'.format(PP_OID, p)
-        pp.add_int(oid, peer_path['uptime'])
-        uptime = peer_path['uptime'] // 1000
+        uptime = peer_path['uptime']
+        if not uptime:
+            uptime = 0
+        pp.add_int(oid, uptime)
+        uptime = uptime // 1000
         days = uptime // 86400
         hours = uptime % 86400 // 3600
         minutes = uptime % 3600 // 60
