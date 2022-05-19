@@ -48,22 +48,13 @@ t128MiscellaneousMIBRib                 OBJECT IDENTIFIER ::= { t128Miscellaneou
 -- t128MiscellaneousMIBArp                 OBJECT IDENTIFIER ::= { t128MiscellaneousMIB 22 }
 
 t128ArpTable OBJECT-TYPE
-    SYNTAX  SEQUENCE OF T128ArpTableEntry
+    SYNTAX  T128ArpTableEntry
     MAX-ACCESS  not-accessible
     STATUS  current
     DESCRIPTION
             "Show ARP table entries of an 128T/SSR router. (leant on RFC1213)"
-    ::= { t128MiscellaneousMIB 22 }
-
-t128ArpTableEntry OBJECT-TYPE
-    SYNTAX      T128ArpTableEntry
-    MAX-ACCESS  not-accessible
-    STATUS  current
-    DESCRIPTION
-            "Each entry contains one IpAddress to `physical'
-            address equivalence."
     INDEX   { t128GlobalInterfaceId, t128IpAddress }
-    ::= { t128ArpTable 1 }
+    ::= { t128MiscellaneousMIB 22 }
 
 T128ArpTableEntry ::=
     SEQUENCE {
@@ -79,7 +70,7 @@ T128ArpTableEntry ::=
             DisplayString
     }
 
-t128InterfaceIndex OBJECT-TYPE
+t128GlobalInterfaceId OBJECT-TYPE
     SYNTAX      Integer32 (1..65535)
     MAX-ACCESS  not-accessible
     STATUS      current
@@ -120,12 +111,5 @@ t128NetworkInterfaceString OBJECT-TYPE
     STATUS      current
     DESCRIPTION "Network interface name as human readable string"
     ::= { t128ArpTableEntry 6 }
-
-t128GlobalInterfaceId OBJECT-TYPE
-    SYNTAX      Integer32 (1..65535)
-    MAX-ACCESS  not-accessible
-    STATUS      current
-    DESCRIPTION "Global Interface ID"
-    ::= { t128ArpTableEntry 7 }
 
 END
