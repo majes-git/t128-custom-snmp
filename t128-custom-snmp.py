@@ -7,16 +7,33 @@ import requests
 from subprocess import run, PIPE
 import sys
 import time
-
-from dmidecode import DMIDecode
-import snmp_passpersist
-
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+import snmp_passpersist
+from pySMART import DeviceList
+
+from lib.dmidecode import DMIDecode
+
+
 REFRESH = 60  # in seconds
 BASE = '.1.3.6.1.4.1.45956.1.1.128'
-
+SMART_KEYS = ('name',
+              'model',
+              'serial',
+              'firmware',
+              'is_ssd',
+              '_capacity',
+              'temperature')
+SMART_ATTRIBUTE_KEYS = ('name',
+                        'flags',
+                        '_value',
+                        '_worst',
+                        '_thresh',
+                        'type',
+                        'updated',
+                        'when_failed',
+                        'raw')
 
 class UnauthorizedException(Exception):
     pass
@@ -115,6 +132,7 @@ def parse_arguments():
     parser.add_argument('--host', help='API host')
     parser.add_argument('--user', help='API username')
     parser.add_argument('--password', help='API password')
+    parser.add_argument('--no-dmi', action='store_true', help='Do not call dmidecode')
     return parser.parse_args()
 
 
@@ -377,22 +395,76 @@ def update_arp(api, pp, interfaces):
         pp.add_str(oid, entry['networkInterface'])
 
 
+def update_smart(api, pp):
+    SMART_OID = '30'
+    i = 1
+    for device in DeviceList().devices:
+        # add general details of the device (e.g. model, serial number, ...)
+        j = 1
+        for key in SMART_KEYS:
+            oid = '{}.{}.1.{}.1'.format(SMART_OID, i, j)
+            if key == '_capacity':
+                pp.add_str(oid, 'capacity')
+            else:
+                pp.add_str(oid, key)
+            oid = '{}.{}.1.{}.2'.format(SMART_OID, i, j)
+            pp.add_auto(oid, device.__getattribute__(key))
+            j += 1
+
+        for attribute in device.attributes:
+            if not attribute:
+                # ignore attributes that have no data
+                continue
+
+            id = attribute.num
+            j = 1
+            for key in SMART_ATTRIBUTE_KEYS:
+                oid = '{}.{}.2.{}.{}.1'.format(SMART_OID, i, id, j)
+                if key == 'raw':
+                    pp.add_str(oid, 'raw_value')
+                elif key == '_thresh':
+                    pp.add_str(oid, 'threshold')
+                elif key == '_value':
+                    pp.add_str(oid, 'value')
+                elif key == '_worst':
+                    pp.add_str(oid, 'worst')
+                else:
+                    pp.add_str(oid, key)
+
+                oid = '{}.{}.2.{}.{}.2'.format(SMART_OID, i, id, j)
+                pp.add_auto(oid, attribute.__getattribute__(key))
+                j += 1
+
+        i += 1
+
+
 def main():
     args = parse_arguments()
     # Prepare API
     keys = ('host', 'user', 'password')
     parameters = {k: v for k, v in args.__dict__.items() if k in keys and v}
     api = RestGraphqlApi(**parameters)
-    dmi = DMIDecode()
+    if not args.no_dmi:
+        dmi = DMIDecode()
 
     def update():
-        update_sysinfo(api, pp, dmi)
+        if not args.no_dmi:
+            update_sysinfo(api, pp, dmi)
         interfaces = update_network_interfaces(api, pp)
         update_peer_paths(api, pp)
         update_fib(api, pp)
         update_arp(api, pp, interfaces)
+        update_smart(api, pp)
 
-    pp=snmp_passpersist.PassPersist(BASE)
+    class PassPersistAuto(snmp_passpersist.PassPersist):
+        def add_auto(self, oid, value):
+            if type(value) == str:
+                self.add_str(oid, value)
+            if type(value) == int:
+                self.add_int(oid, value)
+
+    # pp = snmp_passpersist.PassPersist(BASE)
+    pp = PassPersistAuto(BASE)
     pp.start(update, REFRESH) # Every "REFRESH"s
 
 
