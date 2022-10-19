@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import requests
+import socket
 from subprocess import run, PIPE
 import sys
 import time
@@ -34,6 +35,10 @@ SMART_ATTRIBUTE_KEYS = ('name',
                         'updated',
                         'when_failed',
                         'raw')
+BGP_SUMMARY_KEYS = ('neighbor_ip_address', 'version', 'as', 'messages_received',
+                    'messages_sent', 'tbl_ver', 'in_q', 'out_q', 'up_down',
+                    'state_prefixes_received', 'prefixes_sent', 'description')
+
 
 class UnauthorizedException(Exception):
     pass
@@ -133,12 +138,25 @@ def parse_arguments():
     parser.add_argument('--user', help='API username')
     parser.add_argument('--password', help='API password')
     parser.add_argument('--no-dmi', action='store_true', help='Do not call dmidecode')
+    parser.add_argument('--no-smart', action='store_true', help='Do not collect SMART data')
+    parser.add_argument('--no-bgp', action='store_true', help='Do not collect BGP stats')
     return parser.parse_args()
 
 
 def error(*msg):
     print(*msg)
     sys.exit(1)
+
+
+def read_socket(socket):
+    CHUNK_SIZE = 8192
+    buffer = bytearray()
+    while True:
+      chunk = socket.recv(CHUNK_SIZE)
+      buffer.extend(chunk)
+      if b'\0' in chunk or not chunk:
+        break
+    return buffer
 
 
 def get_network_interfaces(api):
@@ -220,6 +238,36 @@ def get_arp_table(api):
     else:
         error('Retrieving ARP table has failed: {} ({})'.format(
               request.text, request.status_code))
+
+
+def get_bgp_stats():
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        neighbors = []
+        sock.connect('/var/run/128technology/routing/bgpd.vty')
+        sock.sendall(b'show bgp summary\0')
+        buffer = read_socket(sock).decode('ascii').strip()
+        neighbors_start = False
+        for line in buffer.split('\n'):
+            if neighbors_start:
+                if not line:
+                    # end of peers
+                    break
+                neighbor = []
+                for value in line.split():
+                    try:
+                        # convert to integer if possible
+                        value = int(value)
+                    except ValueError:
+                        pass
+                    neighbor.append(value)
+                neighbors.append(neighbor)
+                continue
+            if line.startswith('Neighbor'):
+                neighbors_start = True
+        return neighbors
+    except socket.error:
+        pass
 
 
 def update_sysinfo(api, pp, dmi):
@@ -434,8 +482,20 @@ def update_smart(api, pp):
                 oid = '{}.{}.2.{}.{}.2'.format(SMART_OID, i, id, j)
                 pp.add_auto(oid, attribute.__getattribute__(key))
                 j += 1
-
         i += 1
+
+
+def update_bgp(api, pp):
+    BGP_OID = '40'
+    # BGP_OID.1 is reserved for general BGP stats
+    # BGP_OID.2 is used for stats of BGP neighbors
+    for neighbor in get_bgp_stats():
+        base_oid = '{}.2.{}'.format(BGP_OID, neighbor[0])
+        i = 1
+        for value in neighbor:
+            pp.add_auto('{}.{}.1'.format(base_oid, i), BGP_SUMMARY_KEYS[i-1])
+            pp.add_auto('{}.{}.2'.format(base_oid, i), value)
+            i += 1
 
 
 def main():
@@ -454,7 +514,10 @@ def main():
         update_peer_paths(api, pp)
         update_fib(api, pp)
         update_arp(api, pp, interfaces)
-        update_smart(api, pp)
+        if not args.no_smart:
+            update_smart(api, pp)
+        if not args.no_bgp:
+            update_bgp(api, pp)
 
     class PassPersistAuto(snmp_passpersist.PassPersist):
         def add_auto(self, oid, value):
