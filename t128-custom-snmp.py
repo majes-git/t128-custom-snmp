@@ -137,6 +137,7 @@ def parse_arguments():
     parser.add_argument('--host', help='API host')
     parser.add_argument('--user', help='API username')
     parser.add_argument('--password', help='API password')
+    parser.add_argument('--no-network', action='store_true', help='Do not expose network tables')
     parser.add_argument('--no-dmi', action='store_true', help='Do not call dmidecode')
     parser.add_argument('--no-smart', action='store_true', help='Do not collect SMART data')
     parser.add_argument('--no-bgp', action='store_true', help='Do not collect BGP stats')
@@ -510,10 +511,11 @@ def main():
     def update():
         if not args.no_dmi:
             update_sysinfo(api, pp, dmi)
-        interfaces = update_network_interfaces(api, pp)
-        update_peer_paths(api, pp)
-        update_fib(api, pp)
-        update_arp(api, pp, interfaces)
+        if not args.no_network:
+            interfaces = update_network_interfaces(api, pp)
+            update_peer_paths(api, pp)
+            update_fib(api, pp)
+            update_arp(api, pp, interfaces)
         if not args.no_smart:
             update_smart(api, pp)
         if not args.no_bgp:
