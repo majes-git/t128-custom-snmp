@@ -138,6 +138,7 @@ def parse_arguments():
     parser.add_argument('--user', help='API username')
     parser.add_argument('--password', help='API password')
     parser.add_argument('--no-network', action='store_true', help='Do not expose network tables')
+    parser.add_argument('--no-filesystem', action='store_true', help='Do not collect filesystem info')
     parser.add_argument('--no-dmi', action='store_true', help='Do not call dmidecode')
     parser.add_argument('--no-smart', action='store_true', help='Do not collect SMART data')
     parser.add_argument('--no-bgp', action='store_true', help='Do not collect BGP stats')
@@ -285,6 +286,35 @@ def update_sysinfo(api, pp, dmi):
     pp.add_str('{}.1'.format(SSR_OID), 'Juniper Networks, Inc.')    # sw_vendor
     pp.add_str('{}.2'.format(SSR_OID), 'Session Smart Router')      # sw_product
     pp.add_str('{}.3'.format(SSR_OID), run('rpm -q --qf %{VERSION} 128T'.split(' '), stdout=PIPE, encoding='utf8').stdout)
+
+
+def update_filesystem_info(api, pp):
+    FS_OID = '3'
+
+    fields = ('device name', 'moint point', 'filesystem type', 'mount options',
+              'filesystem dump', 'filesystem check')
+    with open('/proc/mounts','r') as f:
+        mounts = [line.split() for line in f.readlines()]
+
+    i = 1
+    for fs in ('/', '/boot'):
+        for mount in mounts:
+            if mount[1] == fs:
+                for j in range(len(mount)):
+                    pp.add_str('{}.{}.{}.1'.format(FS_OID, i, j+1), fields[j])
+                    pp.add_str('{}.{}.{}.2'.format(FS_OID, i, j+1), mount[j])
+                rw_status_index = j + 2
+                rw_status_value = 'unknown'
+                mount_options = mount[3].split(',')
+                if 'rw' in mount_options:
+                    rw_status_value = 'rw'
+                elif 'ro' in mount_options:
+                    rw_status_value = 'ro'
+                pp.add_str('{}.{}.{}.1'.format(FS_OID, i, rw_status_index),
+                           'rootfs mount status')
+                pp.add_str('{}.{}.{}.2'.format(FS_OID, i, rw_status_index),
+                           rw_status_value)
+                i += 1
 
 
 def update_network_interfaces(api, pp):
@@ -512,6 +542,8 @@ def main():
     def update():
         if not args.no_dmi:
             update_sysinfo(api, pp, dmi)
+        if not args.no_filesystem:
+            update_filesystem_info(api, pp)
         if not args.no_network:
             interfaces = update_network_interfaces(api, pp)
             update_peer_paths(api, pp)
