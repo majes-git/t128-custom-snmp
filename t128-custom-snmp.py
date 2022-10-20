@@ -273,17 +273,18 @@ def get_bgp_stats():
 
 def update_sysinfo(api, pp, dmi):
     SYSINFO_OID = '1'
-    pp.add_str('1.1', dmi.manufacturer())
-    pp.add_str('1.2', dmi.model())
-    pp.add_str('1.3', dmi.firmware())
-    pp.add_str('1.4', dmi.serial_number())
-    pp.add_str('1.5', dmi.cpu_type())
-    pp.add_int('1.6', dmi.cpu_num())
-    pp.add_int('1.7', dmi.total_enabled_cores())
-    pp.add_int('1.8', dmi.total_ram())
-    pp.add_str('2.1', 'Juniper Networks, Inc.')    # sw_vendor
-    pp.add_str('2.2', 'Session Smart Router')      # sw_product
-    pp.add_str('2.3', run('rpm -q --qf %{VERSION} 128T'.split(' '), stdout=PIPE, encoding='utf8').stdout)
+    SSR_OID = '2'
+    pp.add_str('{}.1'.format(SYSINFO_OID), dmi.manufacturer())
+    pp.add_str('{}.2'.format(SYSINFO_OID), dmi.model())
+    pp.add_str('{}.3'.format(SYSINFO_OID), dmi.firmware())
+    pp.add_str('{}.4'.format(SYSINFO_OID), dmi.serial_number())
+    pp.add_str('{}.5'.format(SYSINFO_OID), dmi.cpu_type())
+    pp.add_int('{}.6'.format(SYSINFO_OID), dmi.cpu_num())
+    pp.add_int('{}.7'.format(SYSINFO_OID), dmi.total_enabled_cores())
+    pp.add_int('{}.8'.format(SYSINFO_OID), dmi.total_ram())
+    pp.add_str('{}.1'.format(SSR_OID), 'Juniper Networks, Inc.')    # sw_vendor
+    pp.add_str('{}.2'.format(SSR_OID), 'Session Smart Router')      # sw_product
+    pp.add_str('{}.3'.format(SSR_OID), run('rpm -q --qf %{VERSION} 128T'.split(' '), stdout=PIPE, encoding='utf8').stdout)
 
 
 def update_network_interfaces(api, pp):
