@@ -169,6 +169,7 @@ def get_network_interfaces(api):
     interfaces = []
     if request.status_code == 200:
         for i in request.json()['data']['allNetworkInterfaces']['nodes']:
+            address = {}
             # for static IP config address is in "addresses"
             if i['addresses']['nodes']:
                 address = i['addresses']['nodes'][0]
@@ -184,10 +185,15 @@ def get_network_interfaces(api):
                 'name': i['name'],
                 'device_name': i['deviceInterface']['name'],
                 'description': description,
-                'ip_address': address['ipAddress'],
-                'prefix': address['prefixLength'],
-                'gateway': address['gateway'],
             }
+            try:
+                interface['ip_address'] = address['ipAddress']
+                interface['prefix'] = address['prefixLength']
+                interface['gateway'] = address['gateway']
+            except KeyError:
+                # Ignore interfaces with no IP address
+                pass
+
             interfaces.append(interface)
         return interfaces
     else:
@@ -331,22 +337,23 @@ def update_network_interfaces(api, pp):
         # description
         oid = '{}.3.{}'.format(NI_OID, giid)
         pp.add_str(oid, interface['description'])
-        # ip address + prefix
-        oid = '{}.11.{}'.format(NI_OID, giid)
-        pp.add_str(oid, '{i[ip_address]}/{i[prefix]}'.format(i=interface))
-        # ip address
-        oid = '{}.21.{}'.format(NI_OID, giid)
-        pp.add_ip(oid, interface['ip_address'])
-        # prefix
-        oid = '{}.22.{}'.format(NI_OID, giid)
-        pp.add_int(oid, interface['prefix'])
-        # gateway
-        gateway = interface['gateway']
-        if gateway:
-            oid = '{}.13.{}'.format(NI_OID, giid)
-            pp.add_str(oid, gateway)
-            oid = '{}.23.{}'.format(NI_OID, giid)
-            pp.add_ip(oid, gateway)
+        if 'ip_address' in interface:
+            # ip address + prefix
+            oid = '{}.11.{}'.format(NI_OID, giid)
+            pp.add_str(oid, '{i[ip_address]}/{i[prefix]}'.format(i=interface))
+            # ip address
+            oid = '{}.21.{}'.format(NI_OID, giid)
+            pp.add_ip(oid, interface['ip_address'])
+            # prefix
+            oid = '{}.22.{}'.format(NI_OID, giid)
+            pp.add_int(oid, interface['prefix'])
+            # gateway
+            gateway = interface['gateway']
+            if gateway:
+                oid = '{}.13.{}'.format(NI_OID, giid)
+                pp.add_str(oid, gateway)
+                oid = '{}.23.{}'.format(NI_OID, giid)
+                pp.add_ip(oid, gateway)
     return interfaces
 
 
@@ -439,23 +446,20 @@ def update_arp(api, pp, interfaces):
     for interface in interfaces:
         giids[interface['name']] = interface['giid']
 
-    # Add giid first
     for entry in arp_table:
+        # Add giid first
         oid = '{}.1.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_int(oid, giids[entry['networkInterface']])
 
-    # Add mac addresses
-    for entry in arp_table:
+        # Add mac addresses
         oid = '{}.2.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_oct(oid, entry['destinationMac'].replace(':', ' '))
 
-    # Add ip addresses
-    for entry in arp_table:
+        # Add ip addresses
         oid = '{}.3.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_ip(oid, entry['ipAddress'])
 
-    # Add entry type
-    for entry in arp_table:
+        # Add entry type
         oid = '{}.4.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         state = 2   # default: "invalid"
         if entry['state'] == 'Valid':
@@ -464,13 +468,11 @@ def update_arp(api, pp, interfaces):
             state = 4
         pp.add_int(oid, state)
 
-    # Add mac addresses as string
-    for entry in arp_table:
+        # Add mac addresses as string
         oid = '{}.5.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_str(oid, entry['destinationMac'])
 
-    # Add network interface name as string
-    for entry in arp_table:
+        # Add network interface name as string
         oid = '{}.6.{}.{}'.format(ARP_OID, giids[entry['networkInterface']], entry['ipAddress'])
         pp.add_str(oid, entry['networkInterface'])
 
