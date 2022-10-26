@@ -213,9 +213,20 @@ def get_peer_paths(api):
                 path['name'] = peer['name']
                 peer_paths.append(path)
         return peer_paths
-    else:
-        error('Retrieving peer path details has failed: {} ({})'.format(
-              request.text, request.status_code))
+
+    # error handling
+    if request.status_code == 400:
+        try:
+            main_message = request.json()['errors'][0]['message']
+            if main_message == 'Cannot query field "networkInterfaceDescription" on type "RouterPeerPathType". Did you mean "networkInterface"?':
+                # known incompatibility with older SSR releases:
+                # do not provide data in this case
+                return []
+        except KeyError:
+            # error message not present
+            pass
+    error('Retrieving peer path details has failed: {} ({})'.format(
+          request.text, request.status_code))
 
 
 def get_fib_table(api):
@@ -231,9 +242,20 @@ def get_fib_table(api):
                 fib[service] = []
             fib[service].append(entry['route'])
         return fib
-    else:
-        error('Retrieving FIB table has failed: {} ({})'.format(
-              request.text, request.status_code))
+
+    # error handling
+    if request.status_code == 400:
+        try:
+            main_message = request.json()['errors'][0]['message']
+            if main_message == 'Cannot query field "vrf" on type "FibEntryRoute".':
+                # known incompatibility with older SSR releases:
+                # do not provide data in this case
+                return {}
+        except KeyError:
+            # error message not present
+            pass
+    error('Retrieving FIB table has failed: {} ({})'.format(
+          request.text, request.status_code))
 
 
 def get_arp_table(api):
@@ -243,9 +265,20 @@ def get_arp_table(api):
     request = api.post('/graphql', json)
     if request.status_code == 200:
         return request.json()['data']['allRouters']['nodes'][0]['nodes']['nodes'][0]['arp']['nodes']
-    else:
-        error('Retrieving ARP table has failed: {} ({})'.format(
-              request.text, request.status_code))
+
+    # error handling
+    if request.status_code == 400:
+        try:
+            main_message = request.json()['errors'][0]['message']
+            if main_message == 'Cannot query field "nodes" on type "ArpEntryType".':
+                # known incompatibility with older SSR releases:
+                # do not provide data in this case
+                return {}
+        except KeyError:
+            # error message not present
+            pass
+    error('Retrieving ARP table has failed: {} ({})'.format(
+          request.text, request.status_code))
 
 
 def get_bgp_stats():
