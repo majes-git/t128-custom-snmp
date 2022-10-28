@@ -170,12 +170,17 @@ def get_network_interfaces(api):
     if request.status_code == 200:
         for i in request.json()['data']['allNetworkInterfaces']['nodes']:
             address = {}
-            # for static IP config address is in "addresses"
-            if i['addresses']['nodes']:
-                address = i['addresses']['nodes'][0]
-            # for DHCP IP config address is in "state"
-            elif i['state']['addresses']:
-                address = i['state']['addresses'][0]
+            try:
+                # for static IP config address is in "addresses"
+                if i['addresses']['nodes']:
+                    address = i['addresses']['nodes'][0]
+                # for DHCP IP config address is in "state"
+                elif i['state']['addresses']:
+                    address = i['state']['addresses'][0]
+            except TypeError:
+                # Ignore interfaces with no IP address
+                pass
+
             # avoid 'None' as description
             description = ''
             if i['description']:
