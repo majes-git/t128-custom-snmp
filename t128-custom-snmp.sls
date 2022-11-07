@@ -1,13 +1,39 @@
-{% set config_file = "/etc/snmp/128T-snmpd-custom.conf" %}
+{% set base_directory = "/etc/snmp" %}
+{% set config_directory = "conf.d" %}
+{% set custom_config = "128T-snmpd-custom.conf" %}
+{% set global_config = "128T-snmpd.conf" %}
+{% set include_config = "128T-include.conf" %}
 {% set custom_script = "/usr/sbin/t128-custom-snmp.pyz" %}
 {% set override_file = "/etc/systemd/system/128T-snmpd.service.d/override.conf" %}
 
-128T snmpd config:
+128T snmpd config directory:
+  file.directory:
+    - name: {{ base_directory }}/{{ config_directory }}
+    - mode: 755
+
+128T snmpd include config:
   file.managed:
-    - name: {{ config_file }}
+    - name: {{ base_directory }}/{{ include_config }}
+    - contents:
+      - includeDir	{{ base_directory }}/{{ config_directory }}
+    - mode: 400
+
+128T snmpd custom config:
+  file.managed:
+    - name: {{ base_directory }}/{{ custom_config }}
     - contents:
       - pass_persist .1.3.6.1.4.1.45956.1.1.128 /usr/sbin/t128-custom-snmp.pyz
     - mode: 400
+
+128T snmpd custom config symlink:
+  file.symlink:
+    - name: {{ base_directory }}/{{ config_directory }}/{{ custom_config }}
+    - target: {{ base_directory }}/{{ custom_config }}
+
+128T snmpd global config symlink:
+  file.symlink:
+    - name: {{ base_directory }}/{{ config_directory }}/{{ global_config }}
+    - target: {{ base_directory }}/{{ global_config }}
 
 custom script:
   file.managed:
@@ -28,7 +54,7 @@ custom script:
         ExecStart=/usr/sbin/snmpd \
           $OPTIONS -f \
           $IF_MIB_OVERRIDES \
-          -C -c /etc/snmp/128T-snmpd.conf,{{ config_file }} \
+          -C -c {{ base_directory }}/{{ include_config }} \
           -p /run/128T-snmpd.pid
   module.run:
     - name: service.systemctl_reload
@@ -36,6 +62,6 @@ custom script:
       - file: {{ override_file }}
   service.running:
     - watch:
-      - file: {{ config_file }}
+      - file: {{ base_directory }}/{{ custom_config }}
       - file: {{ custom_script }}
       - file: {{ override_file }}
