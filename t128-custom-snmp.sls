@@ -22,7 +22,7 @@
   file.managed:
     - name: {{ base_directory }}/{{ custom_config }}
     - contents:
-      - pass_persist .1.3.6.1.4.1.45956.1.1.128 /usr/sbin/t128-custom-snmp.pyz
+      - pass_persist .1.3.6.1.4.1.45956.1.1.128 {{ custom_script }}
     - mode: 400
 
 128T snmpd custom config symlink:
