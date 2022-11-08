@@ -6,46 +6,47 @@
 {% set custom_script = "/usr/sbin/t128-custom-snmp.pyz" %}
 {% set override_file = "/etc/systemd/system/128T-snmpd.service.d/override.conf" %}
 
-128T snmpd config directory:
+t128-custom-snmp 128T snmpd config directory:
   file.directory:
     - name: {{ base_directory }}/{{ config_directory }}
     - mode: 755
 
-128T snmpd include config:
+t128-custom-snmp 128T snmpd include config:
   file.managed:
     - name: {{ base_directory }}/{{ include_config }}
     - contents:
       - includeDir	{{ base_directory }}/{{ config_directory }}
     - mode: 400
 
-128T snmpd custom config:
+t128-custom-snmp 128T snmpd custom config:
   file.managed:
     - name: {{ base_directory }}/{{ custom_config }}
     - contents:
       - pass_persist .1.3.6.1.4.1.45956.1.1.128 {{ custom_script }}
     - mode: 400
 
-128T snmpd custom config symlink:
+t128-custom-snmp 128T snmpd custom config symlink:
   file.symlink:
     - name: {{ base_directory }}/{{ config_directory }}/{{ custom_config }}
     - target: {{ base_directory }}/{{ custom_config }}
 
-128T snmpd global config symlink:
+t128-custom-snmp 128T snmpd global config symlink:
   file.symlink:
     - name: {{ base_directory }}/{{ config_directory }}/{{ global_config }}
     - target: {{ base_directory }}/{{ global_config }}
 
-custom script:
+t128-custom-snmp custom script:
   file.managed:
     - name: {{ custom_script }}
     - mode: 755
     - source: salt://t128-custom-snmp.pyz
 
-/etc/systemd/system/128T-snmpd.service.d:
+t128-custom-snmp systemd override directory:
   file.directory:
+    - name: /etc/systemd/system/128T-snmpd.service.d
     - mode: 755
 
-128T-snmpd.service:
+t128-custom-snmp 128T-snmpd.service:
   file.managed:
     - name: {{ override_file }}
     - contents: |
