@@ -46,7 +46,7 @@ t128-custom-snmp systemd override directory:
     - name: /etc/systemd/system/128T-snmpd.service.d
     - mode: 755
 
-t128-custom-snmp 128T-snmpd.service:
+t128-custom-snmp snmpd systemd:
   file.managed:
     - name: {{ override_file }}
     - contents: |
@@ -62,6 +62,7 @@ t128-custom-snmp 128T-snmpd.service:
     - onchanges:
       - file: {{ override_file }}
   service.running:
+    - name: 128T-snmpd.service
     - watch:
       - file: {{ base_directory }}/{{ custom_config }}
       - file: {{ custom_script }}
