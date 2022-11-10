@@ -38,6 +38,12 @@ SMART_ATTRIBUTE_KEYS = ('name',
 BGP_SUMMARY_KEYS = ('neighbor_ip_address', 'version', 'as', 'messages_received',
                     'messages_sent', 'tbl_ver', 'in_q', 'out_q', 'up_down',
                     'state_prefixes_received', 'prefixes_sent', 'description')
+METRICS = (
+    ('aggregate-session/node/session-count', 'Number of sessions', 'absolute'),
+    ('aggregate-session/node/session-arrival-rate', 'Session arrival rate', 'absolute'),
+    ('traffic-eng/internal-application/sent-timeout', 'Sent Timeouts', 'relative'),
+)
+router_name = None
 
 
 class UnauthorizedException(Exception):
@@ -129,6 +135,13 @@ class RestGraphqlApi(object):
             message = request.json()['message']
             raise UnauthorizedException(message)
 
+    def get_routers(self):
+        return self.get('/router').json()
+
+    def get_router_name(self):
+        self.router_name = self.get_routers()[0]['name']
+        return self.router_name
+
 
 def parse_arguments():
     """Get commandline arguments."""
@@ -142,6 +155,7 @@ def parse_arguments():
     parser.add_argument('--no-dmi', action='store_true', help='Do not call dmidecode')
     parser.add_argument('--no-smart', action='store_true', help='Do not collect SMART data')
     parser.add_argument('--no-bgp', action='store_true', help='Do not collect BGP stats')
+    parser.add_argument('--no-kpis', action='store_true', help='Do not collect KPIs')
     return parser.parse_args()
 
 
@@ -314,6 +328,21 @@ def get_bgp_stats():
         return neighbors
     except socket.error:
         pass
+
+
+def get_metrics(api, id, start='now-{}'.format(REFRESH)):
+    metrics = []
+    json = {
+        'id': '/stats/{}'.format(id),
+        'window': {
+            'start': start,
+        },
+        'order': 'ascending',
+    }
+    request = api.post('/router/{}/metrics'.format(router_name), json=json)
+    if request.status_code == 200:
+        values = [e.get('value', 0) for e in request.json() if 'value' in e]
+        return values
 
 
 def update_sysinfo(api, pp, dmi):
@@ -570,12 +599,58 @@ def update_bgp(api, pp):
             i += 1
 
 
+def update_kpis(api, pp):
+    KPI_OID = '50'
+    i = 0
+    for metric, description, type in METRICS:
+        i += 1
+        values = get_metrics(api, metric)
+        base_oid = '{}.{}'.format(KPI_OID, i)
+        if type == 'absolute':
+            pp.add_auto('{}.1.1'.format(base_oid),
+                        '{} ({})'.format(description, 'average'))
+            average = int(sum(values) / len(values))
+            pp.add_auto('{}.1.2'.format(base_oid), average)
+
+            pp.add_auto('{}.2.1'.format(base_oid),
+                        '{} ({})'.format(description, 'minimum'))
+            pp.add_auto('{}.2.2'.format(base_oid), int(min(values)))
+
+            pp.add_auto('{}.3.1'.format(base_oid),
+                        '{} ({})'.format(description, 'maximum'))
+            pp.add_auto('{}.3.2'.format(base_oid), int(max(values)))
+            continue
+
+        elif type == 'relative':
+            first = values[0]
+            last = values[-1]
+            if last < first:
+                # unexpected behavior - skip
+                continue
+
+            pp.add_auto('{}.1.1'.format(base_oid),
+                        '{} ({})'.format(description, 'delta'))
+            pp.add_auto('{}.1.2'.format(base_oid), last - first)
+
+            pp.add_auto('{}.2.1'.format(base_oid),
+                        '{} ({})'.format(description, 'first value'))
+            pp.add_auto('{}.2.2'.format(base_oid), first)
+
+            pp.add_auto('{}.3.1'.format(base_oid),
+                        '{} ({})'.format(description, 'last value'))
+            pp.add_auto('{}.3.2'.format(base_oid), last)
+
+
+
 def main():
+    global router_name
     args = parse_arguments()
     # Prepare API
     keys = ('host', 'user', 'password')
     parameters = {k: v for k, v in args.__dict__.items() if k in keys and v}
     api = RestGraphqlApi(**parameters)
+    router_name = api.get_router_name()
+
     if not args.no_dmi:
         dmi = DMIDecode()
 
@@ -593,6 +668,8 @@ def main():
             update_smart(api, pp)
         if not args.no_bgp:
             update_bgp(api, pp)
+        if not args.no_kpis:
+            update_kpis(api, pp)
 
     class PassPersistAuto(snmp_passpersist.PassPersist):
         def add_auto(self, oid, value):
