@@ -201,9 +201,9 @@ def get_arp_table(api):
 
 
 def get_bgp_stats():
+    neighbors = []
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        neighbors = []
         sock.connect('/var/run/128technology/routing/bgpd.vty')
         sock.sendall(b'show bgp summary\0')
         buffer = read_socket(sock).decode('ascii').strip()
@@ -225,9 +225,9 @@ def get_bgp_stats():
                 continue
             if line.startswith('Neighbor'):
                 neighbors_start = True
-        return neighbors
     except socket.error:
         pass
+    return neighbors
 
 
 def get_metrics(api, id, start='now-{}'.format(REFRESH)):
