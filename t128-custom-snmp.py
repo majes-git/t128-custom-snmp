@@ -14,7 +14,6 @@ from lib.dmidecode import DMIDecode
 from lib.rest import RestGraphqlApi
 
 
-REFRESH = 60  # in seconds
 BASE = '.1.3.6.1.4.1.45956.1.1.128'
 SMART_KEYS = ('name',
               'model',
@@ -50,6 +49,7 @@ def parse_arguments():
     parser.add_argument('--host', help='API host')
     parser.add_argument('--user', help='API username')
     parser.add_argument('--password', help='API password')
+    parser.add_argument('--interval', type=int, default=300, help='Refresh interval')
     parser.add_argument('--no-network', action='store_true', help='Do not expose network tables')
     parser.add_argument('--no-filesystem', action='store_true', help='Do not collect filesystem info')
     parser.add_argument('--no-dmi', action='store_true', help='Do not call dmidecode')
@@ -230,12 +230,12 @@ def get_bgp_stats():
     return neighbors
 
 
-def get_metrics(api, id, start='now-{}'.format(REFRESH)):
+def get_metrics(api, id, interval):
     metrics = []
     json = {
         'id': '/stats/{}'.format(id),
         'window': {
-            'start': start,
+            'start': f'now-{interval}',
         },
         'order': 'ascending',
     }
@@ -499,12 +499,12 @@ def update_bgp(api, pp):
             i += 1
 
 
-def update_kpis(api, pp):
+def update_kpis(api, pp, interval):
     KPI_OID = '50'
     i = 0
     for metric, description, type in METRICS:
         i += 1
-        values = get_metrics(api, metric)
+        values = get_metrics(api, metric, interval)
         base_oid = '{}.{}'.format(KPI_OID, i)
         if type == 'absolute':
             pp.add_auto('{}.1.1'.format(base_oid),
@@ -570,7 +570,7 @@ def main():
         if not args.no_bgp:
             update_bgp(api, pp)
         if not args.no_kpis:
-            update_kpis(api, pp)
+            update_kpis(api, pp, args.interval)
 
     class PassPersistAuto(snmp_passpersist.PassPersist):
         def add_auto(self, oid, value):
@@ -581,7 +581,7 @@ def main():
 
     # pp = snmp_passpersist.PassPersist(BASE)
     pp = PassPersistAuto(BASE)
-    pp.start(update, REFRESH) # Every "REFRESH"s
+    pp.start(update, args.interval)
 
 
 if __name__ == '__main__':

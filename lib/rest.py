@@ -106,3 +106,16 @@ class RestGraphqlApi(object):
     def get_router_name(self):
         self.router_name = self.get_routers()[0]['name']
         return self.router_name
+
+    def get_nodes(self, router):
+        return self.get('/config/running/authority/router/{}/node'.format(
+            router)).json()
+
+    def get_node_names(self, router):
+        nodes = self.get_nodes(router)
+        node_names = [node['name'] for node in nodes]
+        return node_names
+
+    def get_device_interfaces(self, router, node):
+        return self.get(('/config/running/authority/router/{}/node/{}'
+                         '/device-interface').format(router, node)).json()
